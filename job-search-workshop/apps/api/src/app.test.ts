@@ -32,18 +32,20 @@ describe("job finder API", () => {
   it("starts a background collection run", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          [
-            '<a href="https://careers.xero.com/jobs/f864bae7-8238-4123-9251-24d2e7fd63da/software-engineer/">Software Engineer</a>',
-            '<span>US: Remote, Washington, United States</span>',
-            '<a href="https://careers.xero.com/jobs/40a09a30-ab3b-4d65-af9b-728b8da13907/customer-incident-manager/">Customer Incident Manager</a>',
-            '<span>Parnell, Auckland, New Zealand</span>',
-            '<a href="https://www.serko.com/job-listing/principal-engineer-serkoai-auckland-new-zealand"><span>Principal Engineer - Serko.ai</span><span>Auckland, New Zealand</span></a>',
-            '<a href="https://www.serko.com/job-listing/principal-engineer-ai-platform-operations-seattle-united-states">Principal Engineer - AI Platform &amp; Operations Seattle, Washington, United States Full-time</a>',
-          ].join(""),
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            [
+              '<a href="https://careers.xero.com/jobs/f864bae7-8238-4123-9251-24d2e7fd63da/software-engineer/">Software Engineer</a>',
+              "<span>US: Remote, Washington, United States</span>",
+              '<a href="https://careers.xero.com/jobs/40a09a30-ab3b-4d65-af9b-728b8da13907/customer-incident-manager/">Customer Incident Manager</a>',
+              "<span>Parnell, Auckland, New Zealand</span>",
+              '<a href="https://www.serko.com/job-listing/principal-engineer-serkoai-auckland-new-zealand"><span>Principal Engineer - Serko.ai</span><span>Auckland, New Zealand</span></a>',
+              '<a href="https://www.serko.com/job-listing/principal-engineer-ai-platform-operations-seattle-united-states">Principal Engineer - AI Platform &amp; Operations Seattle, Washington, United States Full-time</a>',
+            ].join(""),
+          ),
         ),
-      ),
     );
     const app = createApp(repository);
 
@@ -65,20 +67,24 @@ describe("job finder API", () => {
       skippedCount: 0,
     });
 
-    const listingsResponse = await request(app).get("/api/listings").expect(200);
+    const listingsResponse = await request(app)
+      .get("/api/listings")
+      .expect(200);
     expect(listingsResponse.body.listings).toHaveLength(2);
-    expect(listingsResponse.body.listings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        title: "Customer Incident Manager",
-        location: "Parnell, Auckland, New Zealand",
-        sourceId: "xero",
-      }),
-      expect.objectContaining({
-        title: "Principal Engineer - Serko.ai",
-        location: "Auckland, New Zealand",
-        sourceId: "serko",
-      }),
-    ]));
+    expect(listingsResponse.body.listings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Customer Incident Manager",
+          location: "Parnell, Auckland, New Zealand",
+          sourceId: "xero",
+        }),
+        expect.objectContaining({
+          title: "Principal Engineer - Serko.ai",
+          location: "Auckland, New Zealand",
+          sourceId: "serko",
+        }),
+      ]),
+    );
   });
 
   it("returns an empty listing collection before a source is enabled", async () => {
@@ -87,5 +93,45 @@ describe("job finder API", () => {
     await request(app).get("/api/listings?search=engineer").expect(200, {
       listings: [],
     });
+  });
+
+  it("persists saved listing state and validates save requests", async () => {
+    const source = repository.listSources()[0];
+    if (!source) {
+      throw new Error("Expected a seeded source.");
+    }
+    repository.saveListings(source, [
+      {
+        title: "Software Engineer",
+        location: "Auckland, New Zealand",
+        summary: "Build software.",
+        sourceUrl: "https://example.com/jobs/software-engineer",
+      },
+    ]);
+    const app = createApp(repository);
+    const listing = (await request(app).get("/api/listings").expect(200)).body
+      .listings[0];
+
+    await request(app)
+      .patch(`/api/listings/${listing.id}/saved`)
+      .send({ saved: true })
+      .expect(200);
+    expect(
+      (await request(app).get("/api/listings").expect(200)).body.listings[0]
+        .saved,
+    ).toBe(true);
+
+    await request(app)
+      .patch(`/api/listings/${listing.id}/saved`)
+      .send({ saved: false })
+      .expect(200);
+    await request(app)
+      .patch(`/api/listings/${listing.id}/saved`)
+      .send({ saved: "yes" })
+      .expect(400, { error: "The saved field must be a boolean." });
+    await request(app)
+      .patch("/api/listings/missing/saved")
+      .send({ saved: true })
+      .expect(404, { error: "Listing not found." });
   });
 });

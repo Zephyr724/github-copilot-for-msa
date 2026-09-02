@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import {
+  Bookmark,
   CircleAlert,
   ChevronUp,
   ExternalLink,
@@ -8,8 +9,14 @@ import {
   Search,
 } from "lucide-react";
 
-import { getLatestRun, getListings, startCollection } from "./api";
-import type { CollectionRun, Listing } from "./types";
+import {
+  getLatestRun,
+  getListings,
+  getSources,
+  setListingSaved,
+  startCollection,
+} from "./api";
+import type { CollectionRun, Listing, Source } from "./types";
 
 function formatTimestamp(value: string | null): string {
   if (!value) {
@@ -57,21 +64,30 @@ export function getFreshness(
 
 export default function App() {
   const [listings, setListings] = useState<Listing[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [run, setRun] = useState<CollectionRun | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [collecting, setCollecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [freshnessFilter, setFreshnessFilter] = useState("");
+  const [employmentFilter, setEmploymentFilter] = useState("");
+  const [sortBy, setSortBy] = useState("freshness");
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
-    Promise.all([getListings(), getLatestRun()])
-      .then(([nextListings, latestRun]) => {
+    Promise.all([getListings(), getLatestRun(), getSources()])
+      .then(([nextListings, latestRun, nextSources]) => {
         if (!active) return;
         setListings(nextListings);
         setRun(latestRun);
+        setSources(nextSources);
       })
       .catch((loadError: unknown) => {
         if (active) {
@@ -147,6 +163,82 @@ export default function App() {
     }
   }
 
+  async function handleSave(listing: Listing): Promise<void> {
+    setSavingId(listing.id);
+    setError(null);
+    try {
+      const updatedListing = await setListingSaved(listing.id, !listing.saved);
+      setListings((currentListings) =>
+        currentListings.map((currentListing) =>
+          currentListing.id === updatedListing.id
+            ? updatedListing
+            : currentListing,
+        ),
+      );
+      setSelectedListing((currentListing) =>
+        currentListing?.id === updatedListing.id
+          ? updatedListing
+          : currentListing,
+      );
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save listing.",
+      );
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  function clearFilters(): void {
+    setSourceFilter("");
+    setLocationFilter("");
+    setFreshnessFilter("");
+    setEmploymentFilter("");
+    setSavedOnly(false);
+    setSortBy("freshness");
+  }
+
+  const locations = [
+    ...new Set(
+      listings
+        .map((listing) => listing.location)
+        .filter((location): location is string => Boolean(location)),
+    ),
+  ].sort();
+  const employmentTypes = [
+    "Full-time",
+    "Part-time",
+    "Contract",
+    "Internship",
+  ] as const;
+  const filteredListings = [...listings]
+    .filter((listing) => {
+      const freshness = getFreshness(listing.lastSeenAt).className;
+      return (
+        (!sourceFilter || listing.sourceId === sourceFilter) &&
+        (!locationFilter || listing.location === locationFilter) &&
+        (!freshnessFilter || freshness === freshnessFilter) &&
+        (!employmentFilter || listing.employmentType === employmentFilter) &&
+        (!savedOnly || listing.saved)
+      );
+    })
+    .sort((left, right) => {
+      if (sortBy === "posted") {
+        return (right.postedAt ?? "").localeCompare(left.postedAt ?? "");
+      }
+      if (sortBy === "company") {
+        return left.companyName.localeCompare(right.companyName);
+      }
+      if (sortBy === "title") {
+        return left.title.localeCompare(right.title);
+      }
+      return getFreshness(left.lastSeenAt).className.localeCompare(
+        getFreshness(right.lastSeenAt).className,
+      );
+    });
+
   return (
     <div className="app-shell">
       <main>
@@ -190,7 +282,7 @@ export default function App() {
           <div className="section-toolbar">
             <div>
               <p className="eyebrow">Current results</p>
-              <h2>Software roles ({listings.length})</h2>
+              <h2>Software roles ({filteredListings.length})</h2>
             </div>
             <form
               className="search-form"
@@ -211,15 +303,108 @@ export default function App() {
             </form>
           </div>
 
+          <div className="listing-filters" aria-label="Listing filters">
+            <label>
+              Source
+              <select
+                value={sourceFilter}
+                onChange={(event) => setSourceFilter(event.target.value)}
+              >
+                <option value="">All sources</option>
+                {sources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Location
+              <select
+                value={locationFilter}
+                onChange={(event) => setLocationFilter(event.target.value)}
+              >
+                <option value="">All locations</option>
+                {locations.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Freshness
+              <select
+                value={freshnessFilter}
+                onChange={(event) => setFreshnessFilter(event.target.value)}
+              >
+                <option value="">Any age</option>
+                <option value="freshness-latest">Latest</option>
+                <option value="freshness-two-weeks">2 weeks+</option>
+                <option value="freshness-one-month">1 month+</option>
+                <option value="freshness-two-months">2 months+</option>
+              </select>
+            </label>
+            <label>
+              Employment type
+              <select
+                value={employmentFilter}
+                onChange={(event) => setEmploymentFilter(event.target.value)}
+              >
+                <option value="">Any type</option>
+                {employmentTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Sort by
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+              >
+                <option value="freshness">Freshness</option>
+                <option value="posted">Posted date</option>
+                <option value="company">Company</option>
+                <option value="title">Role title</option>
+              </select>
+            </label>
+            <label className="checkbox-filter">
+              <input
+                checked={savedOnly}
+                onChange={(event) => setSavedOnly(event.target.checked)}
+                type="checkbox"
+              />
+              Saved only
+            </label>
+            <button
+              className="clear-filters"
+              onClick={clearFilters}
+              type="button"
+            >
+              Clear filters
+            </button>
+          </div>
+
           {loading ? (
             <div className="empty-state" aria-live="polite">
               <RefreshCw className="spin" size={24} aria-hidden="true" />
               <strong>Loading roles</strong>
             </div>
-          ) : listings.length === 0 ? (
+          ) : filteredListings.length === 0 ? (
             <div className="empty-state">
-              <strong>No roles found yet</strong>
-              <p>Select Refresh to check for current vacancies.</p>
+              <strong>
+                {listings.length === 0
+                  ? "No roles found yet"
+                  : "No roles match these filters"}
+              </strong>
+              <p>
+                {listings.length === 0
+                  ? "Select Refresh to check for current vacancies."
+                  : "Clear a filter to see more roles."}
+              </p>
             </div>
           ) : (
             <div className="listing-table-wrap">
@@ -235,7 +420,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {listings.map((listing) => {
+                  {filteredListings.map((listing) => {
                     const freshness = getFreshness(listing.lastSeenAt);
                     return (
                       <Fragment key={listing.id}>
@@ -265,18 +450,45 @@ export default function App() {
                             </span>
                           </td>
                           <td>
-                            <a
-                              className="icon-link"
-                              href={listing.sourceUrl}
-                              rel="noreferrer"
-                              target="_blank"
-                              title="Open original listing"
-                            >
-                              <ExternalLink size={17} aria-hidden="true" />
-                              <span className="sr-only">
-                                Open {listing.title}
-                              </span>
-                            </a>
+                            <div className="listing-actions">
+                              <button
+                                aria-label={
+                                  listing.saved
+                                    ? `Unsave ${listing.title}`
+                                    : `Save ${listing.title}`
+                                }
+                                className={`icon-link save-button ${listing.saved ? "saved" : ""}`}
+                                disabled={savingId === listing.id}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleSave(listing);
+                                }}
+                                title={
+                                  listing.saved
+                                    ? "Unsave listing"
+                                    : "Save listing"
+                                }
+                                type="button"
+                              >
+                                <Bookmark
+                                  size={17}
+                                  fill={listing.saved ? "currentColor" : "none"}
+                                  aria-hidden="true"
+                                />
+                              </button>
+                              <a
+                                className="icon-link"
+                                href={listing.sourceUrl}
+                                rel="noreferrer"
+                                target="_blank"
+                                title="Open original listing"
+                              >
+                                <ExternalLink size={17} aria-hidden="true" />
+                                <span className="sr-only">
+                                  Open {listing.title}
+                                </span>
+                              </a>
+                            </div>
                           </td>
                         </tr>
                         {selectedListing?.id === listing.id && (
@@ -314,6 +526,26 @@ export default function App() {
                                   {listing.summary ??
                                     "Open the original listing for the full job description."}
                                 </p>
+                                <button
+                                  aria-label={
+                                    listing.saved
+                                      ? `Unsave ${listing.title}`
+                                      : `Save ${listing.title}`
+                                  }
+                                  className={`detail-save-button ${listing.saved ? "saved" : ""}`}
+                                  disabled={savingId === listing.id}
+                                  onClick={() => void handleSave(listing)}
+                                  type="button"
+                                >
+                                  <Bookmark
+                                    size={17}
+                                    fill={
+                                      listing.saved ? "currentColor" : "none"
+                                    }
+                                    aria-hidden="true"
+                                  />
+                                  {listing.saved ? "Saved" : "Save listing"}
+                                </button>
                               </section>
                               <button
                                 className="collapse-action"
