@@ -79,6 +79,7 @@ The application is also a teaching vehicle. Learners use GitHub Copilot to clari
 - Store companies, sources, listings, and collection runs in a local SQLite database that persists across application restarts.
 - Store mutable application data in the operating system's standard per-user application-data directory: `%APPDATA%\job-finder` on Windows, `~/Library/Application Support/job-finder` on macOS, and `${XDG_DATA_HOME:-~/.local/share}/job-finder` on Linux. Resolve these paths through an operating-system-aware library.
 - Display a list of listings with title, company, location, posted date when available, collection time, freshness, and source status.
+- Show freshness using both text and color: green for less than 2 weeks old, yellow for 2 to less than 4 weeks old, orange for 1 month or more but less than 2 months old, and red for 2 months or more.
 - Support search and filters for title, company, location, and source.
 - Display a detail view with the normalized summary, original URL, source, dates, and any parsing caveats.
 - Link to the original careers page rather than copying an application workflow.

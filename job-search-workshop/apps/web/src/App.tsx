@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   CircleAlert,
   ExternalLink,
@@ -18,6 +18,40 @@ function formatTimestamp(value: string | null): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatPostedDate(value: string | null): string {
+  if (!value) {
+    return "Not provided";
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+export function getFreshness(
+  lastSeenAt: string,
+  now = new Date(),
+): {
+  label: string;
+  className: string;
+} {
+  const ageInDays = Math.max(
+    0,
+    (now.getTime() - new Date(lastSeenAt).getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (ageInDays < 14) {
+    return { label: "Latest", className: "freshness-latest" };
+  }
+  if (ageInDays < 28) {
+    return { label: "2 weeks+", className: "freshness-two-weeks" };
+  }
+  if (ageInDays < 60) {
+    return { label: "1 month+", className: "freshness-one-month" };
+  }
+  return { label: "2 months+", className: "freshness-two-months" };
 }
 
 export default function App() {
@@ -131,7 +165,9 @@ export default function App() {
               type="button"
             >
               <RefreshCw
-                className={collecting || run?.status === "running" ? "spin" : ""}
+                className={
+                  collecting || run?.status === "running" ? "spin" : ""
+                }
                 size={18}
                 aria-hidden="true"
               />
@@ -182,9 +218,7 @@ export default function App() {
           ) : listings.length === 0 ? (
             <div className="empty-state">
               <strong>No roles found yet</strong>
-              <p>
-                Select Refresh to check for current vacancies.
-              </p>
+              <p>Select Refresh to check for current vacancies.</p>
             </div>
           ) : (
             <div className="listing-table-wrap">
@@ -194,61 +228,105 @@ export default function App() {
                     <th>Role</th>
                     <th>Company</th>
                     <th>Location</th>
+                    <th>Posted</th>
+                    <th>Freshness</th>
                     <th aria-label="Open source" />
                   </tr>
                 </thead>
                 <tbody>
-                  {listings.map((listing) => (
-                    <tr
-                      className={selectedListing?.id === listing.id ? "selected" : ""}
-                      key={listing.id}
-                      onClick={() => setSelectedListing(listing)}
-                    >
-                      <td>
-                        <strong>{listing.title}</strong>
-                      </td>
-                      <td>{listing.companyName}</td>
-                      <td>
-                        <span className="location">
-                          <MapPin size={14} aria-hidden="true" />
-                          {listing.location ?? "Not provided"}
-                        </span>
-                      </td>
-                      <td>
-                        <a
-                          className="icon-link"
-                          href={listing.sourceUrl}
-                          rel="noreferrer"
-                          target="_blank"
-                          title="Open original listing"
+                  {listings.map((listing) => {
+                    const freshness = getFreshness(listing.lastSeenAt);
+                    return (
+                      <Fragment key={listing.id}>
+                        <tr
+                          className={
+                            selectedListing?.id === listing.id ? "selected" : ""
+                          }
+                          key={listing.id}
+                          onClick={() => setSelectedListing(listing)}
                         >
-                          <ExternalLink size={17} aria-hidden="true" />
-                          <span className="sr-only">Open {listing.title}</span>
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
+                          <td>
+                            <strong>{listing.title}</strong>
+                          </td>
+                          <td>{listing.companyName}</td>
+                          <td>
+                            <span className="location">
+                              <MapPin size={14} aria-hidden="true" />
+                              {listing.location ?? "Not provided"}
+                            </span>
+                          </td>
+                          <td>{formatPostedDate(listing.postedAt)}</td>
+                          <td>
+                            <span className={`freshness ${freshness.className}`}>
+                              {freshness.label}
+                            </span>
+                          </td>
+                          <td>
+                            <a
+                              className="icon-link"
+                              href={listing.sourceUrl}
+                              rel="noreferrer"
+                              target="_blank"
+                              title="Open original listing"
+                            >
+                              <ExternalLink size={17} aria-hidden="true" />
+                              <span className="sr-only">
+                                Open {listing.title}
+                              </span>
+                            </a>
+                          </td>
+                        </tr>
+                        {selectedListing?.id === listing.id && (
+                          <tr className="listing-detail-row">
+                            <td colSpan={6}>
+                              <section
+                                className="inline-listing-detail"
+                                aria-labelledby={`listing-detail-title-${listing.id}`}
+                              >
+                                <div>
+                                  <p className="eyebrow">Role details</p>
+                                  <h2 id={`listing-detail-title-${listing.id}`}>
+                                    {listing.title}
+                                  </h2>
+                                </div>
+                                <dl>
+                                  <div>
+                                    <dt>Company</dt>
+                                    <dd>{listing.companyName}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Location</dt>
+                                    <dd>{listing.location ?? "Not provided"}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Posted</dt>
+                                    <dd>{formatPostedDate(listing.postedAt)}</dd>
+                                  </div>
+                                </dl>
+                                <p>
+                                  {listing.summary ??
+                                    "Open the original listing for the full job description."}
+                                </p>
+                                <button
+                                  className="collapse-action"
+                                  onClick={() => setSelectedListing(null)}
+                                  type="button"
+                                >
+                                  Collapse
+                                </button>
+                              </section>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </section>
 
-        {selectedListing && (
-          <section className="listing-detail" aria-labelledby="listing-detail-title">
-            <p className="eyebrow">Role details</p>
-            <h2 id="listing-detail-title">{selectedListing.title}</h2>
-            <dl>
-              <div><dt>Company</dt><dd>{selectedListing.companyName}</dd></div>
-              <div><dt>Location</dt><dd>{selectedListing.location ?? "Not provided"}</dd></div>
-              <div><dt>Collected</dt><dd>{formatTimestamp(selectedListing.lastSeenAt)}</dd></div>
-            </dl>
-            <p>{selectedListing.summary ?? "Open the original listing for the full job description."}</p>
-            <a className="primary-action" href={selectedListing.sourceUrl} rel="noreferrer" target="_blank">
-              View original listing <ExternalLink size={18} aria-hidden="true" />
-            </a>
-          </section>
-        )}
       </main>
     </div>
   );
