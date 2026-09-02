@@ -313,6 +313,65 @@ main {
   outline-offset: 1px;
 }
 
+.listing-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.listing-filters label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.listing-filters select {
+  min-width: 140px;
+  min-height: 36px;
+  padding: 0 28px 0 9px;
+  color: var(--ink);
+  background: white;
+  border: 1px solid #bdc8c3;
+  border-radius: 3px;
+}
+
+.checkbox-filter {
+  display: flex !important;
+  min-height: 36px;
+  gap: 7px !important;
+  align-items: center;
+  color: var(--ink) !important;
+  text-transform: none !important;
+}
+
+.checkbox-filter input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--teal);
+}
+
+.clear-filters {
+  min-height: 36px;
+  padding: 0 12px;
+  color: var(--teal-dark);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.clear-filters:hover,
+.clear-filters:focus-visible {
+  border-color: var(--teal);
+  outline: none;
+}
+
 .empty-state {
   display: grid;
   min-height: 310px;
@@ -434,6 +493,29 @@ td {
   background: #fbe0dc;
 }
 
+.listing-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.save-button {
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.save-button.saved,
+.detail-save-button.saved {
+  color: #b47a12;
+}
+
+.save-button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
 .listing-detail-row > td {
   padding: 0;
   background: #f1f6f3;
@@ -474,6 +556,22 @@ td {
   grid-column: 1 / -1;
   margin: 0;
   line-height: 1.5;
+}
+
+.detail-save-button {
+  display: inline-flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+  align-items: center;
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 12px;
+  color: var(--teal-dark);
+  background: transparent;
+  border: 1px solid var(--teal);
+  border-radius: 3px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .collapse-action {

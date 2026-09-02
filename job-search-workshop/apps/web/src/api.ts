@@ -40,3 +40,18 @@ export async function startCollection(): Promise<CollectionRun> {
   );
   return result.run;
 }
+
+export async function setListingSaved(
+  listingId: string,
+  saved: boolean,
+): Promise<Listing> {
+  const result = await requestJson<{ listing: Listing }>(
+    `/api/listings/${encodeURIComponent(listingId)}/saved`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ saved }),
+    },
+  );
+  return result.listing;
+}

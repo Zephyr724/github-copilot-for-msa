@@ -14,12 +14,14 @@ export interface Listing {
   companyName: string;
   title: string;
   location: string | null;
+  employmentType: "Full-time" | "Part-time" | "Contract" | "Internship" | null;
   summary: string | null;
   postedAt: string | null;
   sourceUrl: string;
   firstSeenAt: string;
   lastSeenAt: string;
   status: "active" | "stale" | "unavailable";
+  saved: boolean;
 }
 
 export interface CollectionRun {

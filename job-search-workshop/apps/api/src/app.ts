@@ -35,6 +35,25 @@ export function createApp(repository: JobFinderRepository) {
     response.json({ listings });
   });
 
+  app.patch("/api/listings/:id/saved", (request, response) => {
+    if (typeof request.body?.saved !== "boolean") {
+      response
+        .status(400)
+        .json({ error: "The saved field must be a boolean." });
+      return;
+    }
+
+    const listing = repository.setListingSaved(
+      request.params.id,
+      request.body.saved,
+    );
+    if (!listing) {
+      response.status(404).json({ error: "Listing not found." });
+      return;
+    }
+    response.json({ listing });
+  });
+
   app.get("/api/collection-runs/latest", (_request, response) => {
     response.json({ run: repository.getLatestCollectionRun() });
   });

@@ -78,8 +78,8 @@ export class JobFinderRepository {
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     const rows = this.database
       .prepare(
-        `SELECT id, source_id, company_name, title, location, summary, posted_at,
-                source_url, first_seen_at, last_seen_at, status
+        `SELECT id, source_id, company_name, title, location, employment_type,
+          summary, posted_at, source_url, first_seen_at, last_seen_at, status, saved
          FROM listings
          ${where}
          ORDER BY last_seen_at DESC, title`,
@@ -92,24 +92,39 @@ export class JobFinderRepository {
       companyName: String(row.company_name),
       title: String(row.title),
       location: row.location === null ? null : String(row.location),
+      employmentType:
+        row.employment_type === null
+          ? null
+          : (String(row.employment_type) as Listing["employmentType"]),
       summary: row.summary === null ? null : String(row.summary),
       postedAt: row.posted_at === null ? null : String(row.posted_at),
       sourceUrl: String(row.source_url),
       firstSeenAt: String(row.first_seen_at),
       lastSeenAt: String(row.last_seen_at),
       status: String(row.status) as Listing["status"],
+      saved: Boolean(row.saved),
     }));
+  }
+
+  public setListingSaved(id: string, saved: boolean): Listing | null {
+    const result = this.database
+      .prepare("UPDATE listings SET saved = @saved WHERE id = @id")
+      .run({ id, saved: saved ? 1 : 0 });
+    if (result.changes === 0) return null;
+    return this.listListings().find((listing) => listing.id === id) ?? null;
   }
 
   public saveListings(
     source: Source,
-    listings: Array<Pick<Listing, "title" | "location" | "summary" | "sourceUrl">>,
+    listings: Array<
+      Pick<Listing, "title" | "location" | "summary" | "sourceUrl">
+    >,
   ): void {
     const seenAt = new Date().toISOString();
     const save = this.database.prepare(
       `INSERT INTO listings
-         (id, source_id, company_name, title, location, summary, posted_at, source_url, first_seen_at, last_seen_at, status)
-       VALUES (@id, @sourceId, @companyName, @title, @location, @summary, NULL, @sourceUrl, @seenAt, @seenAt, 'active')
+         (id, source_id, company_name, title, location, employment_type, summary, posted_at, source_url, first_seen_at, last_seen_at, status, saved)
+       VALUES (@id, @sourceId, @companyName, @title, @location, NULL, @summary, NULL, @sourceUrl, @seenAt, @seenAt, 'active', 0)
        ON CONFLICT(id) DO UPDATE SET
          title = excluded.title, location = excluded.location, summary = excluded.summary,
          last_seen_at = excluded.last_seen_at, status = 'active'`,
@@ -117,7 +132,9 @@ export class JobFinderRepository {
     const transaction = this.database.transaction(() => {
       for (const listing of listings) {
         save.run({
-          id: createHash("sha256").update(`${source.id}:${listing.sourceUrl}`).digest("hex"),
+          id: createHash("sha256")
+            .update(`${source.id}:${listing.sourceUrl}`)
+            .digest("hex"),
           sourceId: source.id,
           companyName: source.name,
           ...listing,
@@ -234,12 +251,14 @@ export class JobFinderRepository {
         company_name TEXT NOT NULL,
         title TEXT NOT NULL,
         location TEXT,
+        employment_type TEXT,
         summary TEXT,
         posted_at TEXT,
         source_url TEXT NOT NULL,
         first_seen_at TEXT NOT NULL,
         last_seen_at TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('active', 'stale', 'unavailable'))
+        status TEXT NOT NULL CHECK (status IN ('active', 'stale', 'unavailable')),
+        saved INTEGER NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS collection_runs (
@@ -262,6 +281,15 @@ export class JobFinderRepository {
         PRIMARY KEY (run_id, source_id)
       );
     `);
+
+    const columns = this.database
+      .prepare("PRAGMA table_info(listings)")
+      .all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "saved")) {
+      this.database.exec(
+        "ALTER TABLE listings ADD COLUMN saved INTEGER NOT NULL DEFAULT 0",
+      );
+    }
   }
 
   private seedSources(): void {
