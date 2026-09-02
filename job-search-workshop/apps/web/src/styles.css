@@ -460,13 +460,18 @@ td {
 }
 
 .collapse-action {
-  justify-self: start;
-  min-height: 36px;
+  display: inline-flex;
+  width: 100%;
+  min-height: 42px;
   padding: 0 14px;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
   color: var(--teal-dark);
   background: transparent;
-  border: 1px solid var(--teal);
-  border-radius: 4px;
+  border: 0;
+  border-top: 1px solid var(--teal);
+  border-radius: 0;
   font-weight: 700;
   cursor: pointer;
 }

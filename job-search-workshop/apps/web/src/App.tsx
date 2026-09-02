@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import {
   CircleAlert,
+  ChevronUp,
   ExternalLink,
   MapPin,
   RefreshCw,
@@ -257,7 +258,9 @@ export default function App() {
                           </td>
                           <td>{formatPostedDate(listing.postedAt)}</td>
                           <td>
-                            <span className={`freshness ${freshness.className}`}>
+                            <span
+                              className={`freshness ${freshness.className}`}
+                            >
                               {freshness.label}
                             </span>
                           </td>
@@ -296,25 +299,31 @@ export default function App() {
                                   </div>
                                   <div>
                                     <dt>Location</dt>
-                                    <dd>{listing.location ?? "Not provided"}</dd>
+                                    <dd>
+                                      {listing.location ?? "Not provided"}
+                                    </dd>
                                   </div>
                                   <div>
                                     <dt>Posted</dt>
-                                    <dd>{formatPostedDate(listing.postedAt)}</dd>
+                                    <dd>
+                                      {formatPostedDate(listing.postedAt)}
+                                    </dd>
                                   </div>
                                 </dl>
                                 <p>
                                   {listing.summary ??
                                     "Open the original listing for the full job description."}
                                 </p>
-                                <button
-                                  className="collapse-action"
-                                  onClick={() => setSelectedListing(null)}
-                                  type="button"
-                                >
-                                  Collapse
-                                </button>
                               </section>
+                              <button
+                                className="collapse-action"
+                                onClick={() => setSelectedListing(null)}
+                                aria-label="Collapse details"
+                                title="Collapse details"
+                                type="button"
+                              >
+                                <ChevronUp size={18} aria-hidden="true" />
+                              </button>
                             </td>
                           </tr>
                         )}
@@ -326,7 +335,6 @@ export default function App() {
             </div>
           )}
         </section>
-
       </main>
     </div>
   );

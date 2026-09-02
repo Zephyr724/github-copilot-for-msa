@@ -75,9 +75,15 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("Frontend Engineer"));
     expect(screen.getByText("Build useful software.")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Collapse" })).toBeVisible();
+    const collapseButton = screen.getByRole("button", {
+      name: "Collapse details",
+    });
+    expect(collapseButton).toBeVisible();
+    expect(collapseButton).toHaveTextContent("");
 
-    fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
-    expect(screen.queryByText("Build useful software.")).not.toBeInTheDocument();
+    fireEvent.click(collapseButton);
+    expect(
+      screen.queryByText("Build useful software."),
+    ).not.toBeInTheDocument();
   });
 });
